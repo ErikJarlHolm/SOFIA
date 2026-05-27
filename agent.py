@@ -47,6 +47,11 @@ from azure.ai.projects import AIProjectClient      # Foundry-klient for agenter 
 
 # ── Lokale moduler ───────────────────────────────────────────────────────────
 from readDocument import READ_DOCUMENT_TOOL_DEFINITION, read_document
+from sensitivityClassifier import (
+    SENSITIVITY_TOOL_DEFINITION,
+    SENSITIVITY_CLASSES,
+    format_sensitivity_result,
+)
 
 # ── Lasting av konfigurasjon ────────────────────────────────────────────────
 # override=False betyr at eksisterende OS-miljøvariabler har forrang over .env
@@ -82,11 +87,18 @@ def execute_tool_call(tool_name: str, tool_args: dict) -> str:
 
     Støttede verktøy:
         - read_document: Leser innholdet fra en fil i dokumentmappen
+        - classify_sensitivity: Klassifiserer dokumentets sensitivitetsnivå
 
     Returnerer: JSON-streng med resultatet (eller feilmelding for ukjente verktøy)
     """
     if tool_name == "read_document":
         result = read_document(tool_args.get("filename", ""))
+        return json.dumps(result, ensure_ascii=False)
+    if tool_name == "classify_sensitivity":
+        result = format_sensitivity_result(
+            classes=tool_args.get("classes", []),
+            justification=tool_args.get("justification", ""),
+        )
         return json.dumps(result, ensure_ascii=False)
     return json.dumps({"error": f"Ukjent verktøy: {tool_name}"})
 
@@ -109,13 +121,13 @@ def build_agent_definition(system_prompt: str) -> dict:
         - kind: "prompt" = en instruksjonsbasert agent
         - instructions: System-prompten som styrer agentens oppførsel
         - model: Hvilken LLM-deployment som skal brukes
-        - tools: read_document-verktøyet for å lese filer
+        - tools: read_document + classify_sensitivity
     """
     return {
         "kind": "prompt",
         "instructions": system_prompt,
         "model": MODEL_DEPLOYMENT_NAME,
-        "tools": [READ_DOCUMENT_TOOL_DEFINITION],
+        "tools": [READ_DOCUMENT_TOOL_DEFINITION, SENSITIVITY_TOOL_DEFINITION],
     }
 
 
